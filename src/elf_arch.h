@@ -79,6 +79,38 @@ typedef struct {
     uint64_t p_align;
 } ElfPhdr;
 
+//Get string value of ElfArch enum value, to_string()
+inline const char *elf_arch_name(ElfArch arch)
+{
+    switch (arch)
+    {
+        case ELF_ARCH_X86:
+            return "x86 (i386)";
+        case ELF_ARCH_X86_64:
+            return "x86-64";
+        case ELF_ARCH_ARM32:
+            return "ARM32 (ARMv7)";
+        case ELF_ARCH_ARM64:
+            return "AArch64 (ARM64)";
+        case ELF_ARCH_RISCV64:
+            return "RISC-V 64";
+        default:
+            return "unknown";
+    }
+}
+
+//Return 1 if the running kernel can execute a binary of 'arch', 0 otherwise.
+inline int elf_is_native(ElfArch arch)
+{
+    if (ELF_HOST_BITS == 64 && ELF_HOST_MACHINE == EM_X86_64)
+    {
+        if (ELF_ARCH_X86 == arch)
+            return 1;
+    }
+
+    return (int)(arch == ELF_HOST_ARCH);
+}
+
 //Convert the raw e_machine field into ElfArch enum
 inline int elf_arch_from_machine(uint16_t e_machine)
 {
