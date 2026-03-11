@@ -70,7 +70,121 @@ int elf_load(const void *data, size_t size, ElfLoader *out)
     ElfHeader hdr;
     elf_parse_header(data, size, &hdr);
 
-    
+    uintptr_t vmin = UINTPTR_MAX;
+    uintptr_t vmax = 0;
+    ElfPhdr phdr;
+    for (int i = 0; i < hdr.e_phnum; i++)
+    {
+        if (elf_get_phdr(data, size, &hdr, i, &phdr) != 0)
+            continue;
+
+        if (phdr.p_type != PT_LOAD)
+            continue;
+
+        uintptr_t s = PAGE_DOWN(phdr.p_vaddr); //segment start
+        uintptr_t e = PAGE_UP(phdr.p_vaddr + phdr.p_memsize); //segment end
+
+        vmin = s < vmin ? s : vmin;
+        vmax = e > vmax ? e : vmax;
+    }
+
+    if (UINTPTR_MAX == vmin)
+    {
+        fprintf(stderr, "PT_LOAD segments not found\n");
+        return -1;
+    }
+
+    size_t map_size = vmax - vmin;
+    int is_pie = out->is_pie;
+
+    void *base = mmap(
+        is_pie ? NULL : (void *)vmin, 
+        map_size, 
+        PROT_NONE, 
+        MAP_PRIVATE | MAP_ANONYMOUS | (is_pie ? 0 : MAP_FIXED), 
+        -1, 
+        0
+    );
+    if (MAP_FAILED == base)
+    {
+        perror("mmap: reserve virtual range");
+        return -1;
+    }
+
+    uintptr_t bias = is_pie ? (uintptr_t)base - vmin : 0;
+    out->base = base;
+    out->map_size = map_size;
+    out->bias = bias;
+
+    for (int i = 0; i < hdr.e_phnum; i++)
+    {
+        if (elf_get_phdr(data, size, &hdr, i, &phdr) != 0)
+            continue;
+
+        if (PT_LOAD != phdr.p_type)
+            continue;
+
+        uintptr_t segment_start = PAGE_DOWN(phdr.p_vaddr + bias);
+        uintptr_t segment_end = PAGE_UP(phdr.p_vaddr + bias + phdr.p_memsize);
+        size_t segment_length = segment_end - segment_start;
+
+        void *mem = mmap(
+            (void *)segment_start, 
+            segment_length, 
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+            -1,
+            0
+        );
+
+        if (MAP_FAILED == mem)
+        {
+            perror("mmap: mmap error");
+            goto failure;
+        }
+
+        size_t copy_bytes = phdr.p_filesize;
+        if (phdr.p_offset + copy_bytes > size)
+            copy_bytes = size - phdr.p_offset;
+
+        memcpy((char *)(phdr.p_vaddr + bias), (const char *)data + phdr.p_offset, copy_bytes);
+
+        if (phdr.p_memsize > phdr.p_filesize)
+            memset((char *)(phdr.p_vaddr + bias) + phdr.p_filesize, 0, phdr.p_memsize - phdr.p_filesize);
+
+        if (mprotect((void *)segment_start, segment_length, protect_from_flags(phdr.p_flags)) != 0)
+        {
+            perror("mprotect: permissions error");
+            goto failure;
+        }
+    }
+
+    out->entry = (void *)(hdr.e_entry + bias);
+
+    size_t stack_size = ELF_DEFAULT_STACK_SIZE;
+    void *stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+    if (MAP_FAILED == stack)
+    {
+        perror("mmap: stack error");
+        goto failure;
+    }
+
+    out->stack_base = stack;
+    out->stack_size = stack_size;
+
+    fprintf(stdout, "Loaded %s ELF%d at %p, entry=%p, bias=0x%lx\n", 
+        elf_arch_name(out->arch),
+        out->is_64bit ? 64 : 32,
+        base,
+        out->entry,
+        (unsigned long)bias
+    );
+
+    return 0;
+
+failure:
+    munmap(base, map_size);
+    return -1;
 }
 
 void elf_execute(const ElfLoader *loader, int argc, char **argv, char **envp)

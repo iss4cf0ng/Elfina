@@ -5,6 +5,8 @@
 #include <elf.h>
 #include <stdint.h>
 
+#define ELF_DEFAULT_STACK_SIZE 8UL * 1024 * 1024
+
 #if defined(__x86_64__) || defined(_M_X64)
 
     #define ELF_HOST_ARCH ELF_ARCH_X86_64
