@@ -1,8 +1,2 @@
 # Elfina
-An ELF loader
-
-**Still in development.**
-
-<p align="center"> 
-    <img src="https://iss4cf0ng.github.io/images/meme/koyuki_crying.gif" width=300>
-</p>
+Elfina is an ELF file loader for multiple platforms, including x86 and x64 architecture.
