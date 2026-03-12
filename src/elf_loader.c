@@ -16,6 +16,14 @@
 
 #define PAGE_DOWN(x) ((x) &~(PAGE_SIZE - 1)) //Round an address DOWN to the nearest page boundary
 #define PAGE_UP(x) PAGE_DOWN((x) + PAGE_SIZE - 1) //Round an address UP to the next page boundary
+#define PUSH_VAL(v, loader)  do { \
+    if (loader->is_64bit) { \
+        *(uint64_t *)p = (uint64_t)(uintptr_t)(v); \
+    } else { \
+        *(uint32_t *)p = (uint32_t)(uintptr_t)(v); \
+    } \
+    p += pw; \
+} while(0)
 
 #if defined(__x86_64__)
 
@@ -266,7 +274,80 @@ failure:
 
 void elf_execute(const ElfLoader *loader, int argc, char **argv, char **envp)
 {
-    
+    int envc = 0;
+    while (envp && envp[envc])
+        envc++;
+
+    char *stk = (char *)loader->stack_base + loader->stack_size;
+    stk = (char *)((uintptr_t)stk & ~15UL);
+
+    char **new_envp = malloc((envc + 1) * sizeof(char *));
+    char **new_argv = malloc((argc + 1) * sizeof(char *));
+
+    for (int i = envc - 1; i >= 0; i--)
+    {
+        size_t len = strlen(envp[i]) + 1;
+        stk -= len;
+        memcpy(stk, envp[i], len);
+        new_envp[i] = stk;
+    }
+
+    new_envp[envc] = NULL;
+
+    for (int i = argc - 1; i >= 0; i--)
+    {
+        size_t len = strlen(argv[i]) + 1;
+        stk -= len;
+        memcpy(stk, argv[i], len);
+        new_argv[i] = stk;
+    }
+
+    new_argv[argc] = NULL;
+
+    stk = (char *)((uintptr_t)stk & ~15UL);
+
+    Aux64 auxv[] =
+    {
+        { AT_PAGESZ, PAGE_SIZE },
+        { AT_BASE, (uintptr_t)loader->base },
+        { AT_FLAGS, 0 },
+        { AT_ENTRY, (uintptr_t)loader->entry },
+        { AT_UID, (uint64_t)getuid() },
+        { AT_EUID, (uint64_t)geteuid() },
+        { AT_GID, (uint64_t)getgid() },
+        { AT_EGID, (uint64_t)getegid() },
+        { AT_SECURE, 0 },
+        { AT_NULL, 0 },
+    };
+
+    int n_aux = (int)(sizeof(auxv) / sizeof(auxv[0]));
+    int pw = loader->is_64bit ? 8 : 4;
+    int n_slots = 1 + argc + 1 + envc + 1 + n_aux * 2;
+    stk -= (size_t)n_slots * (size_t)pw;
+    stk = (char *)((uintptr_t)stk & ~15UL);
+
+    char *p = stk;
+    PUSH_VAL(argc, loader);
+    for (int i = 0; i < argc; i++)
+        PUSH_VAL(new_argv[i], loader);
+    PUSH_VAL(0, loader);
+
+    for (int i = 0; i < envc; i++)
+        PUSH_VAL(new_envp[i], loader);
+    PUSH_VAL(0, loader);
+
+    for (int i = 0; i < n_aux; i++)
+    {
+        PUSH_VAL(auxv[i].type, loader);
+        PUSH_VAL(auxv[i].val, loader);
+    }
+
+    free(new_argv);
+    free(new_envp);
+
+    fprintf(stdout, "%s: entry=%p sp=%p\n", elf_arch_name(loader->arch), loader->entry, stk);
+
+    jump_to_entry(stk, loader->entry);
 }
 
 void elf_unload(ElfLoader *loader)
@@ -294,9 +375,10 @@ void elf_info(const ElfLoader *loader)
 
         elf_arch_name(loader->arch),
         loader->is_64bit ? "ELF64" : "ELF32",
-        loader->is_pie ? "PIE (EN_DYN)" : "static (ET_EXEC)",
+        loader->is_pie ? "PIE (ET_DYN)" : "static (ET_EXEC)",
         loader->base,
-        (unsigned long)loader->entry,
+        (unsigned long)loader->bias,
+        loader->entry,
         loader->interp_offset ? "YES (dynamic)" : "NO (static)",
         elf_is_native(loader->arch) ? "YES" : "NO (cross-arch)"
     );

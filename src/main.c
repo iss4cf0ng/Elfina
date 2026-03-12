@@ -98,7 +98,7 @@ int main(int argc, char **argv, char **envp)
     {
         //Too many arguments
         usage(argv[0]);
-        return;
+        return 1;
     }
 
     const char *elf_path = argv[i]; //file path of ELF, last argument

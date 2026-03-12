@@ -25,7 +25,7 @@
 
 #elif defined(__aarch64__) || defined(_M_ARM64)
 
-    #define ELF_HOST_ARCH ELF_ARCH_ARM32
+    #define ELF_HOST_ARCH ELF_ARCH_ARM64
     #define ELF_HOST_MACHINE EM_AARCH64
     #define ELF_HOST_CLASS ELFCLASS64
     #define ELF_HOST_BITS 64
@@ -45,7 +45,7 @@
     #define ELF_HOST_MACHINE EM_RISCV
     #define ELF_HOST_CLASS ELFCLASS64
     #define ELF_HOST_BITS 64
-    #define ELF_HOST_NAME = "RISC-V 64"
+    #define ELF_HOST_NAME "RISC-V 64"
 
 #else
     #error "Unsupported host architecture."
@@ -65,8 +65,8 @@ typedef struct {
     ElfArch arch;
     int is_64bit;
     uint16_t e_type;
-    uint16_t e_entry;
-    uint16_t e_phoff;
+    uint64_t e_entry;
+    uint64_t e_phoff;
     uint16_t e_phentsize;
     uint16_t e_phnum;
 } ElfHeader;
@@ -160,8 +160,9 @@ static inline int elf_parse_header(const void *data, size_t size, ElfHeader *out
     }
     else if (cls == ELFCLASS32)
     {
-        const Elf32_Ehdr *e = (const Elf32_Chdr *)data;
+        const Elf32_Ehdr *e = (const Elf32_Ehdr *)data;
         out->is_64bit = 0;
+        out->arch = elf_arch_from_machine(e->e_machine);
         out->e_type = e->e_type;
         out->e_entry = e->e_entry;
         out->e_phoff = e->e_phoff;
@@ -181,7 +182,7 @@ static inline int elf_parse_header(const void *data, size_t size, ElfHeader *out
 static inline int elf_get_phdr(const void *data, size_t size, const ElfHeader *hdr, int idx, ElfPhdr *out)
 {
     uint64_t offset = hdr->e_phoff + (uint64_t)idx * hdr->e_phentsize;
-    if (offset + hdr->e_phoff > size)
+    if (offset + hdr->e_phentsize > size)
         return -1;
 
     if (hdr->is_64bit)
