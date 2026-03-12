@@ -1,3 +1,5 @@
+//elf_loader.c
+
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -14,8 +16,8 @@
 
 #define PAGE_SIZE 4096UL
 
-#define PAGE_DOWN(x) ((x) &~(PAGE_SIZE - 1)) //Round an address DOWN to the nearest page boundary
-#define PAGE_UP(x) PAGE_DOWN((x) + PAGE_SIZE - 1) //Round an address UP to the next page boundary
+#define PAGE_DOWN(x) ((x) &~(PAGE_SIZE - 1))       //Round an address DOWN to the nearest page boundary
+#define PAGE_UP(x) PAGE_DOWN((x) + PAGE_SIZE - 1)  //Round an address UP to the next page boundary
 #define PUSH_VAL(v, loader)  do { \
     if (loader->is_64bit) { \
         *(uint64_t *)p = (uint64_t)(uintptr_t)(v); \
@@ -361,6 +363,8 @@ void elf_unload(ElfLoader *loader)
     memset(loader, 0, sizeof(*loader));
 }
 
+/// @brief Display information of specific ELF file.
+/// @param loader ElfLoader structure.
 void elf_info(const ElfLoader *loader)
 {
     fprintf(stdout,
@@ -384,7 +388,13 @@ void elf_info(const ElfLoader *loader)
     );
 }
 
-//Execute ELF via memory file descriptor.
+/// @brief Execute ELF via memory file descriptor.
+/// @param data 
+/// @param size 
+/// @param argc 
+/// @param argv 
+/// @param envp 
+/// @return 
 int elf_memfd_exec(const void *data, size_t size, int argc, char **argv, char **envp)
 {
 #ifdef __NR_memfd_create

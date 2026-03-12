@@ -1,3 +1,8 @@
+//main.c
+//Project: Elfina
+//Author: iss4cf0ng/ISSAC
+//GitHub: https://github.com/iss4cf0ng/Elfina/
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +13,7 @@
 
 #include "elf_loader.h"
 
+/// @brief Display banner of this tool.
 void print_banner()
 {
     printf(
@@ -23,6 +29,8 @@ void print_banner()
     );
 }
 
+/// @brief Display usage of this tool.
+/// @param app Application name of this tool, argv[0].
 void usage(const char *app)
 {
     fprintf(stderr, 
@@ -37,6 +45,10 @@ void usage(const char *app)
     );
 }
 
+/// @brief Read file bytes from specific ELF file.
+/// @param elf_path File path of ELF file.
+/// @param out_size Read size of specific ELF file.
+/// @return ELF file buffer (void*).
 void *read_elf(const char *elf_path, size_t *out_size)
 {
     int fd = open(elf_path, O_RDONLY); //Open, read-only
