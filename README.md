@@ -58,6 +58,8 @@ Download and extract the release package:
 wget https://github.com/iss4cf0ng/Elfina/releases/latest/download/elfina-linux.tar.gz
 tar -xzf elfina-linux.tar.gz
 cd elfina
+chmod +x ./elfina
+chmod +x ./elfina32
 ```
 
 The layout is shown as follows:
