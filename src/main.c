@@ -17,10 +17,15 @@
 void print_banner()
 {
     printf(
-        "____ _    ____ _ _  _ ____ \n"
-        "|___ |    |___ | |\\ | |__| \n"
-        "|___ |___ |    | | \\| |  | \n"
-        "                           \n"
+        " (`-')  _                    _     <-. (`-')_ (`-')  _  \n"
+        " ( OO).-/  <-.      <-.     (_)       \\( OO) )(OO ).-/  \n"
+        "(,------.,--. )  (`-')-----.,-(`-'),--./ ,--/ / ,---.   \n"
+        " |  .---'|  (`-')(OO|(_\\---'| ( OO)|   \\ |  | | \\ /`\\.  \n"
+        "(|  '--. |  |OO ) / |  '--. |  |  )|  . '|  |)'-'|_.' | \n"
+        " |  .--'(|  '__ | \\_)  .--'(|  |_/ |  |\\    |(|  .-.  | \n"
+        " |  `---.|     |'  `|  |_)  |  |'->|  | \\   | |  | |  | \n"
+        " `------'`-----'    `--'    `--'   `--'  `--' `--' `--'  \n"
+        "\n"
         "Project: Elfina\n"
         "Author: iss4cf0ng/ISSAC\n"
         "Version: 1.0.0\n"
@@ -36,9 +41,10 @@ void usage(const char *app)
     fprintf(stderr, 
         "Usage: %s [--memfd|--mmap||--info] <elf_binary> [args...]\n"
         "\n"
-        "\t--memfd \n"
-        "\t--mmap \n"
-        "\t--info \n"
+        "\t--coffee \n"
+        "\t--info <elf_path>\n"
+        "\t--memfd <elf_path>\n"
+        "\t--mmap <elf_path>\n"
         "\n"
         "Host architecture: %s\n",
         app, ELF_HOST_NAME
@@ -108,14 +114,17 @@ int main(int argc, char **argv, char **envp)
         return 1;
     }
 
-    int force_memfd = 0;  //--memfd: always use memfd path
-    int force_mmap  = 0;  //--mmap: always use manual mmap path
-    int info_only   = 0;  //--info: inspect but don't execute
-    int i           = 1;  //argv index
+    int print_coffee = 0;  //--coffee: print a cup of coffee
+    int force_memfd  = 0;  //--memfd: always use memfd path
+    int force_mmap   = 0;  //--mmap: always use manual mmap path
+    int info_only    = 0;  //--info: inspect but don't execute
+    int i            = 1;  //argv index
 
     //The last argument must be file path of the specific file.
     for (; i < argc; i++)
     {
+        if (strcmp(argv[i], "--coffee") == 0)
+            print_coffee = 1;
         if (strcmp(argv[i], "--memfd") == 0)
             force_memfd = 1;
         else if (strcmp(argv[i], "--mmap") == 0)
@@ -134,6 +143,24 @@ int main(int argc, char **argv, char **envp)
         return 1;
     }
 
+    if (print_coffee)
+    {
+        printf("    (  )   (   )  )\n");
+        printf("     ) (   )  (  (\n");
+        printf("     ( )  (    ) )\n");
+        printf("     _____________\n");
+        printf("    <_____________> ___\n");
+        printf("    |             |/ _ \\\n");
+        printf("    |               | | |\n");
+        printf("    |               |_| |\n");
+        printf(" ___|             |\\___/\n");
+        printf("/    \\___________/    \\\n");
+        printf("\\_____________________/\n");
+        printf("\n");
+
+        return 0;
+    }
+
     const char *elf_path = argv[i]; //file path of ELF, last argument
 
     //Read ELF file into memory.
@@ -141,7 +168,7 @@ int main(int argc, char **argv, char **envp)
     void *elf_buffer = read_elf(elf_path, &elf_size);
     if (!elf_buffer)
     {
-        fprintf(stderr, "Process terminated.");
+        fprintf(stderr, "Process terminated.\n");
         return 1;
     }
 
