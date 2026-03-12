@@ -96,19 +96,21 @@ chmod +x build.sh
 ## Demonstration
 ### elfina (x86-64)
 <p align="center">
-    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/1.png" width=800>
+    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/1.png" width=700>
 </p>
 
 <p align="center">
-    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/2.png" width=800>
+    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/2.png" width=700>
 </p>
+
+---
 
 ### elfina32 (32-bit)
 <p align="center">
-    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/3.png" width=800>
+    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/3.png" width=700>
 </p>
 
 On Windows Subsystem for Linux (WSL2), Elfina cannot execute 32-bit ELF binary files. Probing (`--info`) and 64-bit execution work fine. For full 32-bit support, use a native Linux environment or a VM such as VirtualBox or VMWare.
 <p align="center">
-    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/4.png" width=800>
+    <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/4.png" width=700>
 </p>
