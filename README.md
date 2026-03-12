@@ -20,8 +20,7 @@ This project is intended for **educational and research purposes only**.
 
 It is designed to help understand:
 
-- Windows PE internals
-- Manual loading techniques
+- ELF format
 - Reverse engineering concepts
 
 <p align="center">
