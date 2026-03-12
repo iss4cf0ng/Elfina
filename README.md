@@ -7,7 +7,7 @@ Recently, I have been studying reverse engineering on Windows and the PE file fo
 To better understand how ELF executables are loaded and executed, I developed **Elfina** as a learning project focused on the Linux kernel and the ELF file format.
 
 <p align="center">
-    <img src="https://iss4cf0ng.github.io/images/meme/himari_elf.png" width="800">
+    <img src="https://iss4cf0ng.github.io/images/meme/himari_elf.png" width="700">
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@ It is designed to help understand:
 - Reverse engineering concepts
 
 <p align="center">
-    <img src="https://iss4cf0ng.github.io/images/meme/mika_rollcake_hit.png" width=200>
+    <img src="https://iss4cf0ng.github.io/images/meme/mika_rollcake_hit.png" width=300>
 </p>
 
 ## Features
