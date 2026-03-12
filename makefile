@@ -1,3 +1,16 @@
+# Elfina
+#
+# Layout:
+#   src/	C and asm source files + headers
+#   bin/	all compiled outputs (created automatically)
+#
+# Usage:
+#   make				– compile all sources into bin/elfina
+#   make test			– build then run all native tests
+#   make cross			– build cross-arch test ELFs -> bin/
+#   make test-cross		– probe cross-arch ELFs with --info
+#   make clean			– remove bin/ entirely
+
 CC     = gcc
 CFLAGS = -Wall -Wextra -O2 -g
 
@@ -29,7 +42,10 @@ CROSS_RV64  = riscv64-linux-gnu-gcc
 
 .PHONY: all test cross test-cross clean
 
-all: $(TARGET) $(BIN_DIR)/test_static $(BIN_DIR)/test_dynamic $(BIN_DIR)/test_asm
+all: $(TARGET) \
+     $(BIN_DIR)/test_static \
+     $(BIN_DIR)/test_dynamic \
+     $(BIN_DIR)/test_asm
 
 $(BIN_DIR):
 	mkdir -p $@
@@ -46,7 +62,6 @@ $(BIN_DIR)/test_static: $(SRC_DIR)/test_hello.c | $(BIN_DIR)
 $(BIN_DIR)/test_dynamic: $(SRC_DIR)/test_hello.c | $(BIN_DIR)
 	$(CC) -o $@ $<
 
-# -nostdlib: no libc; the asm provides its own _start + syscalls
 $(BIN_DIR)/test_asm: $(SRC_DIR)/test_asm.S | $(BIN_DIR)
 	$(CC) -nostdlib $(STATIC_FLAGS) -o $@ $<
 

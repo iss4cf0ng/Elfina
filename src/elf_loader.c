@@ -17,6 +17,83 @@
 #define PAGE_DOWN(x) ((x) &~(PAGE_SIZE - 1)) //Round an address DOWN to the nearest page boundary
 #define PAGE_UP(x) PAGE_DOWN((x) + PAGE_SIZE - 1) //Round an address UP to the next page boundary
 
+#if defined(__x86_64__)
+
+static void __attribute__((noreturn))
+jump_to_entry(void *sp, void *entry)
+{
+    __asm__ volatile(
+        "mov  %0, %%rsp\n\t"
+        "xor  %%rbp, %%rbp\n\t"
+        "xor  %%rdx, %%rdx\n\t"
+        "jmp  *%1\n\t"
+        : : "r"(sp), "r"(entry) : "memory"
+    );
+
+    __builtin_unreachable();
+}
+
+#elif defined(__i386__)
+
+static void __attribute__((noreturn))
+jump_to_entry(void *sp, void *entry)
+{
+    __asm__ volatile(
+        "mov  %0, %%esp\n\t"
+        "xor  %%ebp, %%ebp\n\t"
+        "xor  %%edx, %%edx\n\t"
+        "jmp  *%1\n\t"
+        : : "r"(sp), "r"(entry) : "memory");
+    __builtin_unreachable();
+}
+
+#elif defined(__aarch64__)
+
+static void __attribute__((noreturn))
+jump_to_entry(void *sp, void *entry)
+{
+    __asm__ volatile(
+        "mov  sp,  %0\n\t"
+        "mov  x29, #0\n\t"
+        "mov  x30, #0\n\t"
+        "br   %1\n\t"
+        : : "r"(sp), "r"(entry) : "memory");
+    __builtin_unreachable();
+}
+
+#elif defined(__arm__)
+
+static void __attribute__((noreturn))
+jump_to_entry(void *sp, void *entry)
+{
+    __asm__ volatile(
+        "mov  sp,  %0\n\t"
+        "mov  fp,  #0\n\t"
+        "mov  lr,  #0\n\t"
+        "bx   %1\n\t"
+        : : "r"(sp), "r"(entry) : "memory");
+    __builtin_unreachable();
+}
+
+#elif defined(__riscv)
+static void __attribute__((noreturn))
+jump_to_entry(void *sp, void *entry)
+{
+    __asm__ volatile(
+        "mv   sp,  %0\n\t"
+        "li   fp,  0\n\t"
+        "li   ra,  0\n\t"
+        "jr   %1\n\t"
+        : : "r"(sp), "r"(entry) : "memory");
+    __builtin_unreachable();
+}
+
+#else
+
+#error "No jump_to_entry() trampoline for this architecture."
+
+#endif
+
 int protect_from_flags(uint32_t f)
 {
     return ((f & PF_R) ? PROT_READ : 0) | ((f & PF_W) ? PROT_WRITE : 0) | ((f & PF_X) ? PROT_EXEC : 0);
@@ -27,7 +104,7 @@ int elf_probe(const void *data, size_t size, ElfLoader *out)
     memset(out, 0, sizeof(*out));
 
     ElfHeader hdr;
-    if (elf_parse_header(data, size, &data) != 0)
+    if (elf_parse_header(data, size, &hdr) != 0)
     {
         fprintf(stderr, "Invalid ELF file\n");
         return -1;
@@ -189,20 +266,95 @@ failure:
 
 void elf_execute(const ElfLoader *loader, int argc, char **argv, char **envp)
 {
-
+    
 }
 
 void elf_unload(ElfLoader *loader)
 {
+    if (loader->base)
+        munmap(loader->base, loader->map_size);
+    
+    if (loader->stack_base)
+        munmap(loader->stack_base, loader->stack_size);
 
+    memset(loader, 0, sizeof(*loader));
 }
 
-void elf_info(ElfLoader *loader)
+void elf_info(const ElfLoader *loader)
 {
+    fprintf(stdout,
+        "ELF Info:\n"
+        "\tArchitecture: %s (%s)\n"
+        "\tType: %s\n"
+        "\tMapped base: %p\n"
+        "\tLoad bias: 0x%lx\n"
+        "\tEntry point: %p\n"
+        "\tInterp: %s\n"
+        "\tNative exec: %s\n",
 
+        elf_arch_name(loader->arch),
+        loader->is_64bit ? "ELF64" : "ELF32",
+        loader->is_pie ? "PIE (EN_DYN)" : "static (ET_EXEC)",
+        loader->base,
+        (unsigned long)loader->entry,
+        loader->interp_offset ? "YES (dynamic)" : "NO (static)",
+        elf_is_native(loader->arch) ? "YES" : "NO (cross-arch)"
+    );
 }
 
+//Execute ELF via memory file descriptor.
 int elf_memfd_exec(const void *data, size_t size, int argc, char **argv, char **envp)
 {
+#ifdef __NR_memfd_create
+    /*  Not all Linux systems have this syscall.
+        Create an anonymous in-memory file.
+    */
+    int mfd = (int)syscall(__NR_memfd_create, "elf_mem", 0);
+    if (mfd < 0)
+    {
+        //syscall failed.
+        perror("memfd_create");
+        return -1;
+    }
 
+    /*  Write the entire ELF image into the memfd.
+        Using loop because write() may return fewer bytes than requested for Linux systems.
+    */ 
+    size_t done = 0;
+    while (done < size)
+    {
+        ssize_t n = write(mfd, (unsigned char *)data + done, size - done);
+        if (n <= 0)
+        {
+            //Write error.
+            perror("Write into memfd failed.");
+            close(mfd);
+
+            return -1;
+        }
+
+        done += (size_t)n; //Absoultely positive.
+    }
+
+    /*  Directly execute the ELF image from the file descriptor.
+        The kernel's ELF binfmt handler takes over from here.
+    */
+   fexecve(mfd, argv, envp);
+
+   //If it reaches here, fexecve failed.
+   perror("fexecve() failed.");
+   close(mfd);
+
+   return -1;
+
+#else
+    //Kernel doesn't have memfd_create (pre 3.17 or non-Linux)
+    fprintf(stderr, "memfd_create (__NR_memfd_create) not available on this kernel.");
+    
+    //Avoiding warning, learn from: https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
+    (void)data; (void)size; (void)argc; (void)argv; (void)envp;
+    
+    return -1;
+
+#endif
 }

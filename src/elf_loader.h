@@ -36,7 +36,7 @@ void elf_execute(const ElfLoader *loader, int argc, char **argv, char **envp);
 
 void elf_unload(ElfLoader *loader);
 
-void elf_info(ElfLoader *loader);
+void elf_info(const ElfLoader *loader);
 
 int elf_memfd_exec(const void *data, size_t size, int argc, char **argv, char **envp);
 

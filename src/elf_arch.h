@@ -82,7 +82,7 @@ typedef struct {
 } ElfPhdr;
 
 //Get string value of ElfArch enum value, to_string()
-inline const char *elf_arch_name(ElfArch arch)
+static inline const char *elf_arch_name(ElfArch arch)
 {
     switch (arch)
     {
@@ -102,14 +102,11 @@ inline const char *elf_arch_name(ElfArch arch)
 }
 
 //Return 1 if the running kernel can execute a binary of 'arch', 0 otherwise.
-inline int elf_is_native(ElfArch arch)
+static inline int elf_is_native(ElfArch arch)
 {
-    if (ELF_HOST_BITS == 64 && ELF_HOST_MACHINE == EM_X86_64)
-    {
-        if (ELF_ARCH_X86 == arch)
-            return 1;
-    }
-
+#if ELF_HOST_BITS == 64 && ELF_HOST_MACHINE == EM_X86_64
+    if (arch == ELF_ARCH_X86) return 1;
+#endif
     return (int)(arch == ELF_HOST_ARCH);
 }
 
@@ -134,7 +131,7 @@ inline int elf_arch_from_machine(uint16_t e_machine)
 }
 
 //Read and validate the ELF identification block and file header
-inline int elf_parse_header(const void *data, size_t size, ElfHeader *out)
+static inline int elf_parse_header(const void *data, size_t size, ElfHeader *out)
 {
     //Need at least the 16-byte ELF identification block (e_ident[])
     if (size < EI_NIDENT)
@@ -181,7 +178,7 @@ inline int elf_parse_header(const void *data, size_t size, ElfHeader *out)
 }
 
 //Retrieve program header
-inline int elf_get_phdr(const void *data, size_t size, const ElfHeader *hdr, int idx, ElfPhdr *out)
+static inline int elf_get_phdr(const void *data, size_t size, const ElfHeader *hdr, int idx, ElfPhdr *out)
 {
     uint64_t offset = hdr->e_phoff + (uint64_t)idx * hdr->e_phentsize;
     if (offset + hdr->e_phoff > size)
