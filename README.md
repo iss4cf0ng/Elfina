@@ -1,15 +1,12 @@
 # Elfina
 Elfina is an ELF file loader for multiple platforms, including x86 and x64 architecture.
 
-## Project Status
-**Still in development.**
-
-<p align="center"> 
-    <img src="https://iss4cf0ng.github.io/images/meme/koyuki_crying.gif" width=300>
+<p align="center">
+    <img src="https://iss4cf0ng.github.io/images/meme/himari_elf.png" width="800">
 </p>
 
 ## Background
-
+This project is allow
 
 ## Quick Start
 ```

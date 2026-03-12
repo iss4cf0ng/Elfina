@@ -98,8 +98,10 @@ void *read_elf(const char *elf_path, size_t *out_size)
 
 int main(int argc, char **argv, char **envp)
 {
+    //Display banner.
     print_banner();
 
+    //Invalid usage.
     if (argc < 2) 
     {
         usage(argv[0]);
@@ -111,6 +113,7 @@ int main(int argc, char **argv, char **envp)
     int info_only   = 0;  //--info: inspect but don't execute
     int i           = 1;  //argv index
 
+    //The last argument must be file path of the specific file.
     for (; i < argc; i++)
     {
         if (strcmp(argv[i], "--memfd") == 0)
@@ -123,6 +126,7 @@ int main(int argc, char **argv, char **envp)
             break;
     }
 
+    //Validate arguments count.
     if (i >= argc)
     {
         //Too many arguments

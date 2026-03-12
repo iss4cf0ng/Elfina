@@ -104,11 +104,19 @@ jump_to_entry(void *sp, void *entry)
 
 #endif
 
+/// @brief 
+/// @param f flags
+/// @return 
 int protect_from_flags(uint32_t f)
 {
     return ((f & PF_R) ? PROT_READ : 0) | ((f & PF_W) ? PROT_WRITE : 0) | ((f & PF_X) ? PROT_EXEC : 0);
 }
 
+/// @brief 
+/// @param data 
+/// @param size 
+/// @param out 
+/// @return 
 int elf_probe(const void *data, size_t size, ElfLoader *out)
 {
     memset(out, 0, sizeof(*out));
@@ -137,6 +145,11 @@ int elf_probe(const void *data, size_t size, ElfLoader *out)
     return 0;
 }
 
+/// @brief Load ELF file bytes into memory.
+/// @param data 
+/// @param size 
+/// @param out 
+/// @return 
 int elf_load(const void *data, size_t size, ElfLoader *out)
 {
     if (elf_probe(data, size, out) != 0)
@@ -274,6 +287,11 @@ failure:
     return -1;
 }
 
+/// @brief 
+/// @param loader 
+/// @param argc 
+/// @param argv 
+/// @param envp 
 void elf_execute(const ElfLoader *loader, int argc, char **argv, char **envp)
 {
     int envc = 0;
@@ -352,6 +370,8 @@ void elf_execute(const ElfLoader *loader, int argc, char **argv, char **envp)
     jump_to_entry(stk, loader->entry);
 }
 
+/// @brief 
+/// @param loader 
 void elf_unload(ElfLoader *loader)
 {
     if (loader->base)
@@ -369,13 +389,13 @@ void elf_info(const ElfLoader *loader)
 {
     fprintf(stdout,
         "ELF Info:\n"
-        "\tArchitecture: %s (%s)\n"
-        "\tType: %s\n"
-        "\tMapped base: %p\n"
-        "\tLoad bias: 0x%lx\n"
-        "\tEntry point: %p\n"
-        "\tInterp: %s\n"
-        "\tNative exec: %s\n",
+        "  Architecture : %s (%s)\n"
+        "  Type         : %s\n"
+        "  Mapped base  : %p\n"
+        "  Load bias    : 0x%lx\n"
+        "  Entry point  : %p\n"
+        "  Interp       : %s\n"
+        "  Native exec  : %s\n",
 
         elf_arch_name(loader->arch),
         loader->is_64bit ? "ELF64" : "ELF32",
@@ -389,11 +409,11 @@ void elf_info(const ElfLoader *loader)
 }
 
 /// @brief Execute ELF via memory file descriptor.
-/// @param data 
-/// @param size 
-/// @param argc 
-/// @param argv 
-/// @param envp 
+/// @param data ELF file bytes.
+/// @param size ELF file size.
+/// @param argc ELF input arguments count.
+/// @param argv ELF input arguments.
+/// @param envp Environment position.
 /// @return 
 int elf_memfd_exec(const void *data, size_t size, int argc, char **argv, char **envp)
 {
