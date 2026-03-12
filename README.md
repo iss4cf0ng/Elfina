@@ -20,7 +20,7 @@ This project is intended for **educational and research purposes only**.
 
 It is designed to help understand:
 
-- ELF format
+- ELF file format
 - Reverse engineering concepts
 
 <p align="center">
