@@ -2,7 +2,8 @@
 Elfina is a multi-architecture ELF loader supporting x86 and x86-64 binaries.
 
 ## Background
-Recently, I have been studying reverse engineering on Windows and the PE file format. After that, I started exploring ELF binaries to learn more about Linux reverse engineering and rootkit development.
+Recently, I have been studying reverse engineering on Windows and the PE file format.  
+After that, I started exploring ELF binaries to learn more about Linux reverse engineering and rootkit development.
 
 To better understand how ELF executables are loaded and executed, I developed **Elfina** as a learning project focused on the Linux kernel and the ELF file format.
 
