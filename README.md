@@ -9,13 +9,24 @@ Elfina is an ELF file loader for multiple platforms, including x86 and x64 archi
 This project is allow
 
 ## Quick Start
+### Requirement
 ```
-git clone https://github.com/iss4cf0ng/Elfina
-cd ./Elfina
+sudo apt install gcc-multilib
+```
+
+### Usage
+```
+wget https://github.com/iss4cf0ng/Elfina/releases/latest/download/elfina-linux.tar.gz
+tar -xzf elfina-linux.tar.gz
+cd ./elfina
 make
 
-./bin/elfina --info <elf_path>
-./bin/elfina --mmap <elf_path> [arguments]
-./bin/elfina --memfd <elf_path> [arguments] 
+./elfina --info <x64_elf_path>
+./elfina --mmap <x64_elf_path> [arguments]
+./elfina --memfd <x64_elf_path> [arguments]
+
+./elfina32 --info <x86_elf_path>
+./elfina32 --mmap <x86_elf_path> [arguments]
+./elfina32 --memfd <x86_elf_path> [arguments] 
 ```
 

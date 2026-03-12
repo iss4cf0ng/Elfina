@@ -163,8 +163,8 @@ int main(int argc, char **argv, char **envp)
     //Information
     if (info_only)
     {
-        if (elf_load(elf_buffer, elf_size, &loader) == 0)
-            elf_info(&loader);
+        //if (elf_load(elf_buffer, elf_size, &loader) == 0)
+        elf_info(&loader);
         
         free(elf_buffer);
 
