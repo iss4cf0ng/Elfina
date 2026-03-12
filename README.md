@@ -32,9 +32,10 @@ It is designed to help understand:
 - Multi-architecture ELF loader
 - Support for x86 and x86-64 ELF binaries
 - Multiple execution methods
-    - mmap loading
-    - memfd execution
-- ELF probing and metadata inspection
+    - `--mmap` loading
+    - `--memfd` execution
+- ELF probing
+  - `--info` displays ELF metadata and structure
 
 ## Supported ELF Architectures
 
@@ -48,12 +49,12 @@ It is designed to help understand:
 
 ## Quick Start
 ### Requirements
-```
+```bash
 sudo apt install gcc-multilib
 ```
 
 Download and extract the release package:
-```
+```bash
 wget https://github.com/iss4cf0ng/Elfina/releases/latest/download/elfina-linux.tar.gz
 tar -xzf elfina-linux.tar.gz
 cd elfina
@@ -67,7 +68,7 @@ elfina/
 ```
 
 ### Usage
-```
+```bash
 ./elfina --coffee
 ./elfina --info <x64_elf_path>
 ./elfina --mmap <x64_elf_path> [arguments]
@@ -81,13 +82,13 @@ elfina/
 
 ## Build from Source
 Clone the repository and compile the project:
-```
+```bash
 git clone https://github.com/iss4cf0ng/Elfina
 cd Elfina
 make
 ```
 or
-```
+```bash
 chmod +x build.sh
 ./build.sh
 ```
