@@ -8,6 +8,21 @@
 
 #include "elf_loader.h"
 
+void print_banner()
+{
+    printf(
+        "____ _    ____ _ _  _ ____ \n"
+        "|___ |    |___ | |\\ | |__| \n"
+        "|___ |___ |    | | \\| |  | \n"
+        "                           \n"
+        "Project: Elfina\n"
+        "Author: iss4cf0ng/ISSAC\n"
+        "Version: 1.0.0\n"
+        "GitHub: https://github.com/iss4cf0ng/Elfina\n"
+        "\n"
+    );
+}
+
 void usage(const char *app)
 {
     fprintf(stderr, 
@@ -71,16 +86,18 @@ void *read_elf(const char *elf_path, size_t *out_size)
 
 int main(int argc, char **argv, char **envp)
 {
+    print_banner();
+
     if (argc < 2) 
     {
         usage(argv[0]);
         return 1;
     }
 
-    int force_memfd = 0; //--memfd: always use memfd path
-    int force_mmap = 0; //--mmap: always use manual mmap path
-    int info_only = 0; //--info: inspect but don't execute
-    int i = 1; //argv index
+    int force_memfd = 0;  //--memfd: always use memfd path
+    int force_mmap  = 0;  //--mmap: always use manual mmap path
+    int info_only   = 0;  //--info: inspect but don't execute
+    int i           = 1;  //argv index
 
     for (; i < argc; i++)
     {
