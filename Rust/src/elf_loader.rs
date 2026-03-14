@@ -1,5 +1,4 @@
-use std::{arch::x86_64::_mm_broadcastss_ps, env, fmt::format, ops::BitOrAssign, ptr};
-use capstone::arch::{self, sparc::SparcReg::SPARC_REG_ENDING};
+use std::ptr;
 use libc::{
     MAP_ANON, MAP_ANONYMOUS, MAP_FAILED, MAP_FIXED, MAP_GROWSDOWN, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE, close, fexecve, mmap, mprotect, munmap, write
 };
@@ -14,7 +13,7 @@ const PAGE_SIZE: usize = 4096;
 
 #[inline]
 fn page_down(x: usize) -> usize {
-    return x & !(PAGE_SIZE);
+    return x & !(PAGE_SIZE - 1);
 }
 
 #[inline]
@@ -24,14 +23,14 @@ fn page_up(x: usize) -> usize {
 
 #[derive(Debug)]
 pub struct ElfLoader {
-    pub arch         : ElfArch,   // target architecture
-    pub is_64bit     : bool,      // true = ELF64, false = ELF32
-    pub is_pie       : bool,      // true = ET_DYN (PIE), false = ET_EXEC
-    pub interp_offset: usize,     // file offset of PT_INTERP string, or 0
+    pub arch         : ElfArch,
+    pub is_64bit     : bool,
+    pub is_pie       : bool,
+    pub interp_offset: usize,
 
-    pub base     : *mut u8,   // base of the mmap reservation
-    pub map_size : usize,     // total size of the reservation
-    pub load_bias: usize,     // ASLR slide: real_addr = elf_vaddr + load_bias
+    pub base     : *mut u8,
+    pub map_size : usize,
+    pub load_bias: usize,
 
     pub entry     : *mut u8,
     pub stack_base: *mut u8,
@@ -86,9 +85,9 @@ fn interp_path(data: &[u8], offset: usize) -> String {
 }
 
 fn map_segment(data: &[u8], ph: &ElfPhdr, bias: usize) -> Result<(), String> {
-    let seg_start = page_down(ph.p_vaddr as usize + bias); // segment start
-    let seg_end = page_up(ph.p_vaddr as usize + bias + ph.p_memsize as usize); // segment end
-    let seg_len = seg_end - seg_start;
+    let seg_start = page_down(ph.p_vaddr as usize + bias);
+    let seg_end   = page_up(ph.p_vaddr as usize + bias + ph.p_memsize as usize);
+    let seg_len   = seg_end - seg_start;
 
     let mem = unsafe {
         mmap(
@@ -105,7 +104,7 @@ fn map_segment(data: &[u8], ph: &ElfPhdr, bias: usize) -> Result<(), String> {
         return Err(format!("mmap segment failed: {}", std::io::Error::last_os_error()));
     }
 
-    let dest = (ph.p_vaddr as usize + bias) as *mut u8;
+    let dest       = (ph.p_vaddr as usize + bias) as *mut u8;
     let src_offset = ph.p_offset as usize;
     let copy_bytes = (ph.p_filesize as usize).min(data.len() - src_offset);
 
@@ -113,21 +112,14 @@ fn map_segment(data: &[u8], ph: &ElfPhdr, bias: usize) -> Result<(), String> {
         ptr::copy_nonoverlapping(data.as_ptr().add(src_offset), dest, copy_bytes);
     }
 
-    // Zero to BSS tail (p_memsize > p_filesize region)
     if ph.p_memsize > ph.p_filesize {
         let bss_start = (ph.p_vaddr as usize + bias + ph.p_filesize as usize) as *mut u8;
-        let bss_len = (ph.p_memsize - ph.p_filesize) as usize;
-        
-        unsafe  {
-            ptr::write_bytes(bss_start, 0, bss_len);
-        }
+        let bss_len   = (ph.p_memsize - ph.p_filesize) as usize;
+        unsafe { ptr::write_bytes(bss_start, 0, bss_len); }
     }
 
-    // Apply correct R/W/X permissions via mprotect
     let prot = prot_from_flags(ph.p_flags);
-    if unsafe {
-        mprotect(seg_start as *mut libc::c_void, seg_len, prot)
-    } != 0 {
+    if unsafe { mprotect(seg_start as *mut libc::c_void, seg_len, prot) } != 0 {
         return Err(format!("mprotect failed: {}", std::io::Error::last_os_error()));
     }
 
@@ -136,8 +128,9 @@ fn map_segment(data: &[u8], ph: &ElfPhdr, bias: usize) -> Result<(), String> {
 
 pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
     let mut loader = elf_probe(data)?;
+
     if !loader.arch.is_native() {
-        return Err(format!("Cross-arch: binary os {} host is {}", loader.arch.to_str(), host_arch_name()));
+        return Err(format!("Cross-arch: binary is {} host is {}", loader.arch.to_str(), host_arch_name()));
     }
 
     if loader.interp_offset != 0 {
@@ -157,14 +150,10 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
         };
 
         let start = page_down(ph.p_vaddr as usize);
-        let end = page_up(ph.p_vaddr as usize + ph.p_memsize as usize);
+        let end   = page_up(ph.p_vaddr as usize + ph.p_memsize as usize);
 
-        if start < vmin {
-            vmin = start;
-        }
-        if end > vmax {
-            vmax = end;
-        }
+        if start < vmin { vmin = start; }
+        if end   > vmax { vmax = end;   }
     }
 
     if usize::MAX == vmin {
@@ -172,24 +161,53 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
     }
 
     let map_size = vmax - vmin;
-    let is_pie = loader.is_pie;
-    let hint = if is_pie { ptr::null_mut() } else { vmin as *mut libc::c_void };
+    let is_pie   = loader.is_pie;
+
+    // ---- STEP 1: allocate stack FIRST ----
+    // Stack must be allocated before reserving the ELF virtual range.
+    // If we reserve ELF range first, the kernel may place the stack inside
+    // that reservation (especially for PIE binaries where the kernel picks
+    // a base freely). Stack overlapping with code/data = corrupted sp = segfault.
+    let stack = unsafe {
+        mmap(
+            ptr::null_mut(),
+            ELF_DEFAULT_STACK_SIZE,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN,
+            -1,
+            0,
+        )
+    };
+
+    if MAP_FAILED == stack {
+        return Err(format!("mmap stack failed: {}", std::io::Error::last_os_error()));
+    }
+
+    loader.stack_base = stack as *mut u8;
+    loader.stack_size = ELF_DEFAULT_STACK_SIZE;
+
+    // ---- STEP 2: reserve the full ELF virtual range with PROT_NONE ----
+    // Stack is already claimed so the kernel won't overlap it with ELF base.
+    let hint  = if is_pie { ptr::null_mut() } else { vmin as *mut libc::c_void };
     let flags = MAP_PRIVATE | MAP_ANONYMOUS | if is_pie { 0 } else { MAP_FIXED };
+
     let base = unsafe {
         mmap(hint, map_size, PROT_NONE, flags, -1, 0)
     };
 
     if MAP_FAILED == base {
+        unsafe { munmap(stack, ELF_DEFAULT_STACK_SIZE); }
         return Err(format!("mmap reservation failed: {}", std::io::Error::last_os_error()));
     }
 
-    let base = base as *mut u8;
+    let base      = base as *mut u8;
     let load_bias = if is_pie { base as usize - vmin } else { 0 };
 
-    loader.base = base;
-    loader.map_size = map_size;
+    loader.base      = base;
+    loader.map_size  = map_size;
     loader.load_bias = load_bias;
 
+    // ---- STEP 3: map each PT_LOAD segment over the reservation ----
     for i in 0..hdr.e_phnum {
         let ph = match elf_get_phdr(data, &hdr, i) {
             Some(p) if PT_LOAD == p.p_type => p,
@@ -197,35 +215,23 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
         };
 
         if let Err(e) = map_segment(data, &ph, load_bias) {
+            // Clean up both reservations on failure
             unsafe {
                 munmap(base as *mut libc::c_void, map_size);
+                munmap(stack, ELF_DEFAULT_STACK_SIZE);
             }
-
             return Err(e);
         }
     }
 
     loader.entry = (hdr.e_entry as usize + load_bias) as *mut u8;
 
-    let stack = unsafe {
-        mmap(ptr::null_mut(), ELF_DEFAULT_STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0)
-    };
-
-    if MAP_FAILED == stack {
-        unsafe {
-            munmap(base as *mut libc::c_void, map_size);
-        }
-    }
-
-    loader.stack_base = stack as *mut u8;
-    loader.stack_size = ELF_DEFAULT_STACK_SIZE;
-
-    eprintln!("Loaded {} ELF{} at {:p}, entry={:p}, bias=0x{:x}", 
-        loader.arch.to_str(), 
-        if loader.is_64bit { 64 } else { 32 }, 
-        loader.base, 
-        loader.entry, 
-        loader.load_bias, 
+    eprintln!("Loaded {} ELF{} at {:p}, entry={:p}, bias=0x{:x}",
+        loader.arch.to_str(),
+        if loader.is_64bit { 64 } else { 32 },
+        loader.base,
+        loader.entry,
+        loader.load_bias,
     );
 
     return Ok(loader);
@@ -258,7 +264,7 @@ unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
         options(nostack, noreturn)
     );
 }
- 
+
 #[cfg(target_arch = "aarch64")]
 unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
     std::arch::asm!(
@@ -271,7 +277,7 @@ unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
         options(nostack, noreturn)
     );
 }
- 
+
 #[cfg(target_arch = "arm")]
 unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
     std::arch::asm!(
@@ -284,7 +290,7 @@ unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
         options(nostack, noreturn)
     );
 }
- 
+
 #[cfg(target_arch = "riscv64")]
 unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
     std::arch::asm!(
@@ -297,8 +303,7 @@ unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
         options(nostack, noreturn)
     );
 }
- 
-// Fallback for unsupported architectures: panics at runtime
+
 #[cfg(not(any(
     target_arch = "x86_64",
     target_arch = "x86",
@@ -310,11 +315,10 @@ unsafe fn jump_to_entry(_sp: *mut u8, _entry: *mut u8) -> ! {
     panic!("jump_to_entry: unsupported architecture");
 }
 
-unsafe fn elf_execute(loader: &ElfLoader, args: &[String], env: &[String]) -> !{
-    // start at the top of the stack region, aligned to 16 bytes
+pub unsafe fn elf_execute(loader: &ElfLoader, args: &[String], env: &[String]) -> ! {
     let mut stk = (loader.stack_base as usize + loader.stack_size) & !15usize;
 
-    // push string data (env then argv, high to low)
+    // ---- push env strings onto the stack (high to low) ----
     let mut env_ptrs: Vec<*const u8> = Vec::with_capacity(env.len() + 1);
     for s in env.iter().rev() {
         let bytes = s.as_bytes();
@@ -322,13 +326,12 @@ unsafe fn elf_execute(loader: &ElfLoader, args: &[String], env: &[String]) -> !{
         let dst = stk as *mut u8;
         ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len());
         *dst.add(bytes.len()) = 0;
-
         env_ptrs.push(dst);
     }
-
     env_ptrs.reverse();
-    env_ptrs.push(ptr::null()); // envp null terminator
+    env_ptrs.push(ptr::null());
 
+    // ---- push arg strings onto the stack (high to low) ----
     let mut argu_ptrs: Vec<*const u8> = Vec::with_capacity(args.len() + 1);
     for s in args.iter().rev() {
         let bytes = s.as_bytes();
@@ -336,20 +339,58 @@ unsafe fn elf_execute(loader: &ElfLoader, args: &[String], env: &[String]) -> !{
         let dst = stk as *mut u8;
         ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len());
         *dst.add(bytes.len()) = 0;
-
         argu_ptrs.push(dst);
     }
-
     argu_ptrs.reverse();
-    argu_ptrs.push(ptr::null()); // argument null terminator
+    argu_ptrs.push(ptr::null());
 
-    stk &= !15usize; // re-align after string data
+    stk &= !15usize;
 
     let auxv: &[(usize, usize)] = &[
-
+        (libc::AT_PAGESZ as usize, PAGE_SIZE),
+        (libc::AT_BASE as usize, loader.base as usize),
+        (libc::AT_FLAGS as usize, 0),
+        (libc::AT_ENTRY as usize, loader.entry as usize),
+        (libc::AT_UID as usize, libc::getuid()  as usize),
+        (libc::AT_EUID as usize, libc::geteuid() as usize),
+        (libc::AT_GID as usize, libc::getgid()  as usize),
+        (libc::AT_EGID as usize, libc::getegid() as usize),
+        (libc::AT_SECURE as usize, 0),
+        (0, 0),
     ];
 
-    
+    let pw = if loader.is_64bit { 8usize } else { 4usize };
+
+    let n_slots = 1
+        + args.len() + 1
+        + env.len()  + 1
+        + auxv.len() * 2;
+
+    stk -= n_slots * pw;
+    stk &= !15usize;
+
+    let mut p = stk;
+
+    macro_rules! push_val {
+        ($v:expr) => {
+            if loader.is_64bit {
+                *(p as *mut u64) = $v as u64;
+            } else {
+                *(p as *mut u32) = $v as u32;
+            }
+            p += pw;
+        };
+    }
+
+    push_val!(args.len());
+    for ptr in &argu_ptrs { push_val!(*ptr as usize); }
+    for ptr in &env_ptrs  { push_val!(*ptr as usize); }
+    for (t, v) in auxv {
+        push_val!(*t);
+        push_val!(*v);
+    }
+
+    eprintln!("{}: entry={:p} sp=0x{:x}", loader.arch.to_str(), loader.entry, stk);
 
     jump_to_entry(stk as *mut u8, loader.entry);
 }
@@ -371,18 +412,60 @@ pub fn elf_unload(loader: &mut ElfLoader) {
 }
 
 pub fn elf_print_info(loader: &ElfLoader) {
+    println!(
+        "ELF Info:\n\
+        \tArchitecture : {} ({})\n\
+        \tType         : {}\n\
+        \tMapped base  : {:p}\n\
+        \tLoad bias    : 0x{:x}\n\
+        \tEntry point  : {:p}\n\
+        \tInterp       : {}\n\
+        \tNative exec  : {}",
+        loader.arch.to_str(),
+        if loader.is_64bit { "ELF64" } else { "ELF32" },
+        if loader.is_pie { "PIE (ET_DYN)" } else { "static (ET_EXEC)" },
+        loader.base,
+        loader.load_bias,
+        loader.entry,
+        if loader.interp_offset != 0 { "YES (dynamic)" } else { "NO (static)" },
+        if loader.arch.is_native() { "YES" } else { "NO (cross-arch)" },
+    );
+}
 
+fn to_cstring_vec(strings: &[String]) -> Vec<std::ffi::CString> {
+    return strings.iter()
+        .map(|s| std::ffi::CString::new(s.as_str()).unwrap_or_default())
+        .collect();
 }
 
 pub fn elf_memfd_exec(data: &[u8], args: &[String], env: &[String]) -> Result<(), String> {
+    let c_args = to_cstring_vec(args);
+    let c_env  = to_cstring_vec(env);
+    let argv: Vec<*const libc::c_char> = c_args.iter()
+        .map(|s| s.as_ptr()).chain(std::iter::once(ptr::null())).collect();
+    let envp: Vec<*const libc::c_char> = c_env.iter()
+        .map(|s| s.as_ptr()).chain(std::iter::once(ptr::null())).collect();
 
     unsafe {
         let mfd = libc::syscall(libc::SYS_memfd_create, b"elf_mem\0".as_ptr(), 0u32) as i32;
+        if mfd < 0 {
+            return Err(format!("memfd_create failed: {}", std::io::Error::last_os_error()));
+        }
 
+        let mut done = 0usize;
+        while done < data.len() {
+            let n = write(mfd, data.as_ptr().add(done) as *const libc::c_void, data.len() - done);
+            if n <= 0 {
+                close(mfd);
+                return Err(format!("write to memfd failed: {}", std::io::Error::last_os_error()));
+            }
+            done += n as usize;
+        }
+
+        fexecve(mfd, argv.as_ptr(), envp.as_ptr());
 
         let err = std::io::Error::last_os_error();
         close(mfd);
-
         return Err(format!("fexecve failed: {}", err));
     }
 }
