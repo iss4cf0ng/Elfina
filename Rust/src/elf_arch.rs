@@ -70,6 +70,12 @@ impl ElfArch {
     }
 }
 
+impl Default for ElfArch {
+    fn default() -> Self {
+        return ElfArch::Unknown;
+    }
+}
+
 pub fn host_arch() -> ElfArch {
     #[cfg(target_arch = "x86_64")] { return ElfArch::X86_64; }
     #[cfg(target_arch = "x86")] { return ElfArch::X86; }
@@ -87,16 +93,41 @@ pub fn host_arch_name() -> &'static str {
 
 #[derive(Debug, Default)]
 pub struct ElfHeader {
-
+    pub arch: ElfArch,
+    pub is_64bit: bool,
+    pub e_type: u16,
+    pub e_entry: u64, // virtual address of entry point
+    pub e_phoffset: u64, // file offset to program header table
+    pub e_phentsize: u16, // size of one program header entry
+    pub e_phnum: u16, // number of program header entries
 }
-
 
 #[derive(Debug, Default)]
 pub struct ElfPhdr {
-
+    pub p_type: u32,
+    pub p_flags: u32,
+    pub p_offset: u64,
+    pub p_vaddr: u64,
+    pub p_filesize: u64,
+    pub p_memsize: u64,
+    pub p_align: u64,
 }
 
 #[repr(C, packed)]
 pub struct Elf64Ehdr {
-    
+    e_ident: [u8; 16],
+    e_type: u16,
+    e_machine: u16,
+    e_version: u32,
+    e_entry: u64,
+    e_phoffset: u64,
+    e_shoffset: u64,
+    e_flags: u32,
+    e_ehsize: u16,
+    e_phentsize: u16,
+    e_phnum: u16,
+    e_shentsize: u16,
+    e_shnum: u16,
+    e_shstrndx: u16,
 }
+

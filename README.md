@@ -88,10 +88,11 @@ elfina/
 ```
 
 ## Build from Source
+### C-lang
 Clone the repository and compile the project:
 ```bash
 git clone https://github.com/iss4cf0ng/Elfina
-cd Elfina
+cd Elfina/C-lang
 make
 ```
 or
@@ -99,6 +100,9 @@ or
 chmod +x build.sh
 ./build.sh
 ```
+
+### Rust
+**Coming soon**
 
 ## Demonstration
 ### elfina (x86-64)
