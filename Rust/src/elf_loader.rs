@@ -26,24 +26,22 @@ fn page_up(x: usize) -> usize {
 
 #[derive(Debug)]
 pub struct ElfLoader {
-    pub arch         : ElfArch,
-    pub is_64bit     : bool,
-    pub is_pie       : bool,
-    pub interp_offset: usize,
-
-    pub base     : *mut u8,
-    pub map_size : usize,
-    pub load_bias: usize,
-
-    pub entry     : *mut u8,
-    pub stack_base: *mut u8,
-    pub stack_size: usize,
+    pub arch         : ElfArch,   // architecture
+    pub is_64bit     : bool,      // is 64-bit
+    pub is_pie       : bool,      // is Position-Independent Executable (PIE, for ASLR)
+    pub interp_offset: usize,     // interpreter offset
+    pub base         : *mut u8,   // base address
+    pub map_size     : usize,     // map size
+    pub load_bias    : usize,     // bias
+    pub entry        : *mut u8,   // entry point
+    pub stack_base   : *mut u8,   // base address of stack
+    pub stack_size   : usize,     // stack size
 
     // stored for auxv AT_PHDR/AT_PHENT/AT_PHNUM
     // libc _start (musl, glibc) reads these to find the program headers
-    pub phdr_offset : usize,   // e_phoff: file offset of program header table
-    pub phdr_entsize: usize,   // e_phentsize: size of one program header entry
-    pub phdr_num    : usize,   // e_phnum: number of program header entries
+    pub phdr_offset  : usize,     // e_phoff: file offset of program header table
+    pub phdr_entsize : usize,     // e_phentsize: size of one program header entry
+    pub phdr_num     : usize,     // e_phnum: number of program header entries
 }
 
 impl Default for ElfLoader {
@@ -66,6 +64,7 @@ impl Default for ElfLoader {
     }
 }
 
+// probe ELF
 pub fn elf_probe(data: &[u8]) -> Result<ElfLoader, String> {
     let hdr = elf_parse_header(data).ok_or_else(|| "Invalid ELF file".to_string())?;
     let mut loader = ElfLoader::default();
@@ -86,6 +85,7 @@ pub fn elf_probe(data: &[u8]) -> Result<ElfLoader, String> {
     return Ok(loader);
 }
 
+// read interpreter path
 fn interp_path(data: &[u8], offset: usize) -> String {
     if offset >= data.len() {
         return "Invalid".to_string();
@@ -186,8 +186,8 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
     // ---- STEP 1: allocate stack FIRST ----
     // Stack must be allocated before reserving the ELF virtual range.
     // If we reserve ELF range first, the kernel may place the stack inside
-    // that reservation (especially for PIE where the kernel picks the base
-    // freely). Stack overlapping with code/data = corrupted sp = segfault.
+    // that reservation (especially for PIE where the kernel picks the base freely).
+    // Stack overlapping with code/data = corrupted sp = segfault.
     let stack = unsafe {
         mmap(
             ptr::null_mut(),
@@ -258,7 +258,7 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
 }
 
 // ------------------------------------------------------------------ //
-// Execution                                                            //
+// Execution                                                          //
 // ------------------------------------------------------------------ //
 
 #[cfg(target_arch = "x86_64")]

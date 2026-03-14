@@ -161,13 +161,14 @@ fn parse_args(raw: &[String]) -> Result<(Opts, usize), String> {
 }
 
 fn main() {
-    println!("{}", BANNER);
-    println!("{}", DESCRIPTION);
-    println!("");
+    println!("{}", BANNER);       // print banner
+    println!("{}", DESCRIPTION);  // print discription
+    println!("");                 // separation line
 
     let args: Vec<String> = std::env::args().collect();
     let env_vars: Vec<String> = std::env::vars().map(|(k, v)| format!("{}={}", k, v)).collect();
 
+    // validate argument
     if args.len() < 2 {
         print_usage(&args[0]);
         process::exit(1);
@@ -182,6 +183,7 @@ fn main() {
         }
     };
 
+    // the only exception: print a cupt of coffee!
     if opts.coffee {
         println!("{}", COFFEE);
         process::exit(1);
@@ -192,9 +194,10 @@ fn main() {
         process::exit(1);
     }
 
-    let elf_path = &args[path_idx];
-    let target_args: Vec<String> = args[path_idx..].to_vec();
+    let elf_path = &args[path_idx]; // file path of the ELF file
+    let target_args: Vec<String> = args[path_idx..].to_vec(); // arguments for in-memory execution
 
+    // read ELF file bytes
     let elf_data = match  fs::read(elf_path) {
         Ok(d) => d,
         Err(e) => {
@@ -203,6 +206,7 @@ fn main() {
         }
     };
 
+    // loader ELF into memory
     let mut loader = match elf_probe(&elf_data) {
         Ok(l) => l,
         Err(e) => {
@@ -211,6 +215,7 @@ fn main() {
         }
     };
 
+    // print summary
     println!(
         "arch={:<12} class=ELF{}\t{}\t{}",
         loader.arch.to_str(),
@@ -219,6 +224,7 @@ fn main() {
         if loader.interp_offset != 0 { "dynamic" } else { "static" },
     );
 
+    // hexdump
     if opts.hexdump || opts.hexdump_out.is_some() {
         println!();
         if let Err(e) = do_hexdump(&elf_data, 0, opts.hexdump_out.as_deref()) {
@@ -226,6 +232,7 @@ fn main() {
         }
     }
 
+    
     if opts.entropy || opts.entropy_out.is_some() {
         println!();
         if let Err(e) = entropy_output(&elf_data, opts.entropy_out.as_deref()) {
