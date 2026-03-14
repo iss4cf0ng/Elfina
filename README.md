@@ -76,15 +76,37 @@ elfina/
 
 ### Usage
 ```bash
+// ---------- elfina (x64) ----------
+
 ./elfina --coffee
 ./elfina --info <x64_elf_path>
 ./elfina --mmap <x64_elf_path> [arguments]
 ./elfina --memfd <x64_elf_path> [arguments]
 
+./elfina --hexdump <x64_elf_path>
+./elfina --hexdump-out <x64_elf_path>
+
+./elfina --entropy <x64_elf_path>
+./elfina --entropy-out <output_file> <x64_elf_path>
+
+./elfina --disasm <x64_elf_path>
+./elfina --disasm-out <output_file> <x64_elf_path>
+
+// ---------- elfina32 (x86) ----------
+
 ./elfina32 --coffee
 ./elfina32 --info <x86_elf_path>
 ./elfina32 --mmap <x86_elf_path> [arguments]
-./elfina32 --memfd <x86_elf_path> [arguments] 
+./elfina32 --memfd <x86_elf_path> [arguments]
+
+./elfina32 --hexdump <x86_elf_path>
+./elfina32 --hexdump-out <x86_elf_path>
+
+./elfina32 --entropy <x86_elf_path>
+./elfina32 --entropy-out <output_file> <x86_elf_path>
+
+./elfina32 --disasm <x86_elf_path>
+./elfina32 --disasm-out <output_file> <x86_elf_path>
 ```
 
 ## Build from Source
