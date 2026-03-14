@@ -233,7 +233,7 @@ fn main() {
 
     if opts.disasm || opts.disasm_out.is_some() {
         println!();
-        if let Err(e) = disassemble(&elf_data, loader.arch, 0, opts.disasm_out.as_deref()) {
+        if let Err(e) = disassemble(&elf_data, loader.arch, opts.disasm_out.as_deref()) {
             eprintln!("disasm error: {}", e);
         }
     }
