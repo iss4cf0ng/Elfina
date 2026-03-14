@@ -1,6 +1,6 @@
 # Ignore bin/
-C-lang/bin/
+C/bin/
+Rust/bin/
 
 # Ignore target/
 Rust/target/
-Rust/bin/
