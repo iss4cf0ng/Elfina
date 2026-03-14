@@ -4,3 +4,10 @@ Rust/bin/
 
 # Ignore target/
 Rust/target/
+
+# Ignore gz file
+*.gz
+
+# test
+C/test/
+Rust/test/

@@ -92,7 +92,7 @@ elfina/
 Clone the repository and compile the project:
 ```bash
 git clone https://github.com/iss4cf0ng/Elfina
-cd Elfina/C-lang
+cd Elfina/C
 make
 ```
 or
@@ -102,7 +102,12 @@ chmod +x build.sh
 ```
 
 ### Rust
-**Coming soon**
+```bash
+git clone https://github.com/iss4cf0ng/Elfina
+cd Elfina/Rust
+chmod +x build.sh
+./build.sh
+```
 
 ## Demonstration
 ### elfina (x86-64)
