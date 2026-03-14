@@ -1,7 +1,8 @@
+//entropy.rs
+
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io::{self, Write};
-
 
 const BLOCK_SIZE: usize = 256;
 const BAR_WIDTH: usize = 32;

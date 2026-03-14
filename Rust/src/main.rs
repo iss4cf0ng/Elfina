@@ -1,3 +1,5 @@
+//main.rs
+
 mod entropy;
 mod hexdump;
 mod disasm;

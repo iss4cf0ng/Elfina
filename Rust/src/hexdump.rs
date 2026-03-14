@@ -1,3 +1,5 @@
+//hexdump.rs
+
 use std::fmt::Write as FmtWrite;
 use std::{fs, path};
 use std::io::{self, Write};

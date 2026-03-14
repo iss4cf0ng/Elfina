@@ -8,16 +8,16 @@ pub const ELF_CLASS64: u8   = 2;
 pub const ELF_CLASS: usize  = 4;
 pub const ELF_NIDENT: usize = 16;
 
-pub const ET_EXEC: u16 = 2; // fixed-address executable
-pub const ET_DYN: u16  = 3; // PIE or shared object
+pub const ET_EXEC: u16 = 2;  // fixed-address executable
+pub const ET_DYN: u16  = 3;  // PIE or shared object
 
-pub const PT_LOAD: u32   = 1; // loadable segment
-pub const PT_INTERP: u32 = 3; // path to dynamic linker
+pub const PT_LOAD: u32   = 1;  // loadable segment
+pub const PT_INTERP: u32 = 3;  // path to dynamic linker
 
-// Permission
-pub const PF_X: u32 = 0x1; // Execute permission
-pub const PF_W: u32 = 0x2; // Write permission
-pub const PF_R: u32 = 0x4; // Read permission
+                            // Permission
+pub const PF_X: u32 = 0x1;  // Execute permission
+pub const PF_W: u32 = 0x2;  // Write permission
+pub const PF_R: u32 = 0x4;  // Read permission
 
 pub const EM_386: u16     = 3;
 pub const EM_ARM: u16     = 40;
