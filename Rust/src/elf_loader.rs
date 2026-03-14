@@ -311,9 +311,44 @@ unsafe fn jump_to_entry(_sp: *mut u8, _entry: *mut u8) -> ! {
 }
 
 unsafe fn elf_execute(loader: &ElfLoader, args: &[String], env: &[String]) -> !{
+    // start at the top of the stack region, aligned to 16 bytes
     let mut stk = (loader.stack_base as usize + loader.stack_size) & !15usize;
 
+    // push string data (env then argv, high to low)
     let mut env_ptrs: Vec<*const u8> = Vec::with_capacity(env.len() + 1);
+    for s in env.iter().rev() {
+        let bytes = s.as_bytes();
+        stk -= bytes.len() + 1;
+        let dst = stk as *mut u8;
+        ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len());
+        *dst.add(bytes.len()) = 0;
+
+        env_ptrs.push(dst);
+    }
+
+    env_ptrs.reverse();
+    env_ptrs.push(ptr::null()); // envp null terminator
+
+    let mut argu_ptrs: Vec<*const u8> = Vec::with_capacity(args.len() + 1);
+    for s in args.iter().rev() {
+        let bytes = s.as_bytes();
+        stk -= bytes.len() + 1;
+        let dst = stk as *mut u8;
+        ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len());
+        *dst.add(bytes.len()) = 0;
+
+        argu_ptrs.push(dst);
+    }
+
+    argu_ptrs.reverse();
+    argu_ptrs.push(ptr::null()); // argument null terminator
+
+    stk &= !15usize; // re-align after string data
+
+    let auxv: &[(usize, usize)] = &[
+
+    ];
+
     
 
     jump_to_entry(stk as *mut u8, loader.entry);
