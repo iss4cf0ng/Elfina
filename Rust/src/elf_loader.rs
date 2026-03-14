@@ -1,4 +1,4 @@
-use std::{arch::x86_64::_mm_broadcastss_ps, fmt::format, ops::BitOrAssign, ptr};
+use std::{arch::x86_64::_mm_broadcastss_ps, env, fmt::format, ops::BitOrAssign, ptr};
 use capstone::arch::{self, sparc::SparcReg::SPARC_REG_ENDING};
 use libc::{
     MAP_ANON, MAP_ANONYMOUS, MAP_FAILED, MAP_FIXED, MAP_GROWSDOWN, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE, close, fexecve, mmap, mprotect, munmap, write
@@ -311,9 +311,43 @@ unsafe fn jump_to_entry(_sp: *mut u8, _entry: *mut u8) -> ! {
 }
 
 unsafe fn elf_execute(loader: &ElfLoader, args: &[String], env: &[String]) -> !{
+    let mut stk = (loader.stack_base as usize + loader.stack_size) & !15usize;
 
+    let mut env_ptrs: Vec<*const u8> = Vec::with_capacity(env.len() + 1);
+    
+
+    jump_to_entry(stk as *mut u8, loader.entry);
 }
 
 pub fn elf_unload(loader: &mut ElfLoader) {
+    unsafe {
+        if !loader.base.is_null() {
+            munmap(loader.base as *mut libc::c_void, loader.map_size);
+            loader.base = ptr::null_mut();
+        }
 
+        if !loader.stack_base.is_null() {
+            munmap(loader.stack_base as *mut libc::c_void, loader.stack_size);
+            loader.stack_base = ptr::null_mut();
+        }
+
+        *loader = ElfLoader::default();
+    }
+}
+
+pub fn elf_print_info(loader: &ElfLoader) {
+
+}
+
+pub fn elf_memfd_exec(data: &[u8], args: &[String], env: &[String]) -> Result<(), String> {
+
+    unsafe {
+        let mfd = libc::syscall(libc::SYS_memfd_create, b"elf_mem\0".as_ptr(), 0u32) as i32;
+
+
+        let err = std::io::Error::last_os_error();
+        close(mfd);
+
+        return Err(format!("fexecve failed: {}", err));
+    }
 }

@@ -30,4 +30,6 @@ pub fn shannon_entropy(data: &[u8]) -> f64 {
 
 pub fn entropy_report(data: &[u8], out_path: Option<&str>) -> Result<(), String> {
     
+
+    return Ok(());
 }
