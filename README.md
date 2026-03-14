@@ -152,3 +152,18 @@ On Windows Subsystem for Linux (WSL2), Elfina cannot execute 32-bit ELF binary f
 <p align="center">
     <img src="https://iss4cf0ng.github.io/images/article/2026-3-12-Elfina/4.png" width=700>
 </p>
+
+### `--hexdump`
+<p align="center">
+    <img src="https://iss4cf0ng.github.io/images/article/2026-3-14-Elfina2.0.0/2.png" width=700>
+</p>
+
+### `--entropy`
+<p align="center">
+    <img src="https://iss4cf0ng.github.io/images/article/2026-3-14-Elfina2.0.0/1.png" width=700>
+</p>
+
+### `--disasm`
+<p align="center">
+    <img src="https://iss4cf0ng.github.io/images/article/2026-3-14-Elfina2.0.0/3.png" width=700>
+</p>
