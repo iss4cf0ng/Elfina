@@ -1,6 +1,7 @@
 use std::ptr;
 use libc::{
-    MAP_ANON, MAP_ANONYMOUS, MAP_FAILED, MAP_FIXED, MAP_GROWSDOWN, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE, close, fexecve, mmap, mprotect, munmap, write
+    close, fexecve, mmap, mprotect, munmap, write,
+    MAP_ANON, MAP_ANONYMOUS, MAP_FAILED, MAP_FIXED, MAP_GROWSDOWN, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE,
 };
 
 use crate::elf_arch::{
@@ -35,6 +36,12 @@ pub struct ElfLoader {
     pub entry     : *mut u8,
     pub stack_base: *mut u8,
     pub stack_size: usize,
+
+    // stored for auxv AT_PHDR/AT_PHENT/AT_PHNUM
+    // libc _start (musl, glibc) reads these to find the program headers
+    pub phdr_offset : usize,   // e_phoff: file offset of program header table
+    pub phdr_entsize: usize,   // e_phentsize: size of one program header entry
+    pub phdr_num    : usize,   // e_phnum: number of program header entries
 }
 
 impl Default for ElfLoader {
@@ -50,6 +57,9 @@ impl Default for ElfLoader {
             entry        : ptr::null_mut(),
             stack_base   : ptr::null_mut(),
             stack_size   : 0,
+            phdr_offset  : 0,
+            phdr_entsize : 0,
+            phdr_num     : 0,
         }
     }
 }
@@ -57,9 +67,10 @@ impl Default for ElfLoader {
 pub fn elf_probe(data: &[u8]) -> Result<ElfLoader, String> {
     let hdr = elf_parse_header(data).ok_or_else(|| "Invalid ELF file".to_string())?;
     let mut loader = ElfLoader::default();
-    loader.arch = hdr.arch;
+
+    loader.arch     = hdr.arch;
     loader.is_64bit = hdr.is_64bit;
-    loader.is_pie = hdr.e_type == ET_DYN;
+    loader.is_pie   = hdr.e_type == ET_DYN;
 
     for i in 0..hdr.e_phnum {
         if let Some(ph) = elf_get_phdr(data, &hdr, i) {
@@ -112,6 +123,7 @@ fn map_segment(data: &[u8], ph: &ElfPhdr, bias: usize) -> Result<(), String> {
         ptr::copy_nonoverlapping(data.as_ptr().add(src_offset), dest, copy_bytes);
     }
 
+    // Zero the BSS tail (p_memsize > p_filesize region)
     if ph.p_memsize > ph.p_filesize {
         let bss_start = (ph.p_vaddr as usize + bias + ph.p_filesize as usize) as *mut u8;
         let bss_len   = (ph.p_memsize - ph.p_filesize) as usize;
@@ -140,6 +152,12 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
 
     let hdr = elf_parse_header(data).unwrap();
 
+    // Store program header metadata for auxv AT_PHDR/AT_PHENT/AT_PHNUM.
+    // libc's _start reads these to locate the program header table.
+    loader.phdr_offset  = hdr.e_phoffset  as usize;
+    loader.phdr_entsize = hdr.e_phentsize as usize;
+    loader.phdr_num     = hdr.e_phnum     as usize;
+
     let mut vmin = usize::MAX;
     let mut vmax = 0usize;
 
@@ -166,8 +184,8 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
     // ---- STEP 1: allocate stack FIRST ----
     // Stack must be allocated before reserving the ELF virtual range.
     // If we reserve ELF range first, the kernel may place the stack inside
-    // that reservation (especially for PIE binaries where the kernel picks
-    // a base freely). Stack overlapping with code/data = corrupted sp = segfault.
+    // that reservation (especially for PIE where the kernel picks the base
+    // freely). Stack overlapping with code/data = corrupted sp = segfault.
     let stack = unsafe {
         mmap(
             ptr::null_mut(),
@@ -237,7 +255,9 @@ pub fn elf_load(data: &[u8]) -> Result<ElfLoader, String> {
     return Ok(loader);
 }
 
-// Execution
+// ------------------------------------------------------------------ //
+// Execution                                                            //
+// ------------------------------------------------------------------ //
 
 #[cfg(target_arch = "x86_64")]
 unsafe fn jump_to_entry(sp: *mut u8, entry: *mut u8) -> ! {
@@ -346,17 +366,25 @@ pub unsafe fn elf_execute(loader: &ElfLoader, args: &[String], env: &[String]) -
 
     stk &= !15usize;
 
+    // AT_PHDR = base + phdr_offset: the in-memory address of the program
+    // header table. libc's _start reads this to find TLS segments, vDSO, etc.
+    let at_phdr = loader.base as usize + loader.phdr_offset;
+
     let auxv: &[(usize, usize)] = &[
         (libc::AT_PAGESZ as usize, PAGE_SIZE),
-        (libc::AT_BASE as usize, loader.base as usize),
-        (libc::AT_FLAGS as usize, 0),
-        (libc::AT_ENTRY as usize, loader.entry as usize),
-        (libc::AT_UID as usize, libc::getuid()  as usize),
-        (libc::AT_EUID as usize, libc::geteuid() as usize),
-        (libc::AT_GID as usize, libc::getgid()  as usize),
-        (libc::AT_EGID as usize, libc::getegid() as usize),
+        (libc::AT_BASE   as usize, loader.base  as usize),
+        (libc::AT_FLAGS  as usize, 0),
+        (libc::AT_ENTRY  as usize, loader.entry as usize),
+        // program header info — required by musl/glibc _start
+        (libc::AT_PHDR   as usize, at_phdr),
+        (libc::AT_PHENT  as usize, loader.phdr_entsize),
+        (libc::AT_PHNUM  as usize, loader.phdr_num),
+        (libc::AT_UID    as usize, libc::getuid()  as usize),
+        (libc::AT_EUID   as usize, libc::geteuid() as usize),
+        (libc::AT_GID    as usize, libc::getgid()  as usize),
+        (libc::AT_EGID   as usize, libc::getegid() as usize),
         (libc::AT_SECURE as usize, 0),
-        (0, 0),
+        (0, 0), // AT_NULL terminator
     ];
 
     let pw = if loader.is_64bit { 8usize } else { 4usize };
@@ -428,7 +456,7 @@ pub fn elf_print_info(loader: &ElfLoader) {
         loader.load_bias,
         loader.entry,
         if loader.interp_offset != 0 { "YES (dynamic)" } else { "NO (static)" },
-        if loader.arch.is_native() { "YES" } else { "NO (cross-arch)" },
+        if loader.arch.is_native()   { "YES" }           else { "NO (cross-arch)" },
     );
 }
 

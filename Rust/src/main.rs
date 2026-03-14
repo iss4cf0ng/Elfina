@@ -6,8 +6,9 @@ mod elf_loader;
 
 use std::fs;
 use std::process;
+use std::sync::Arc;
 
-use crate::elf_arch::host_arch;
+use crate::disasm::disassemble;
 use crate::elf_arch::host_arch_name;
 use crate::elf_loader::{
     elf_probe,
@@ -17,9 +18,8 @@ use crate::elf_loader::{
     elf_print_info,
     elf_memfd_exec,
 };
-use crate::entropy::entropy_output;
 use hexdump::hexdump as do_hexdump;
-use entropy::print_entropy;
+use entropy::entropy_output;
 
 const BANNER: &str = r#"
  (`-')  _                    _     <-. (`-')_ (`-')  _  
@@ -119,11 +119,35 @@ fn parse_args(raw: &[String]) -> Result<(Opts, usize), String> {
                 opts.info_only = true;
             }
 
-            "--hexdump" => { opts.hexdump = true; }
+            "--hexdump" => { 
+                opts.hexdump = true; 
+            }
             "--hexdump-out" => {
                 i += 1;
                 let path = raw.get(i).ok_or("--hexdump-out requires a filename argument")?;
                 opts.hexdump_out = Some(path.clone());
+            }
+
+            "--disasm" => {
+                opts.disasm = true;
+            }
+            "--disasm-out" => {
+                i += 1;
+                let path = raw.get(i).ok_or("--disasm-out requires a filename argument")?;
+                opts.disasm_out = Some(path.clone());
+            }
+
+            "--entropy" => {
+                opts.entropy = true;
+            }
+            "--entropy-out" => {
+                i += 1;
+                let path = raw.get(i).ok_or("--entropy-ut requires a filename argument")?;
+                opts.entropy_out = Some(path.clone());
+            }
+
+            arg if arg.starts_with("--") => {
+                return Err(format!("Unknown flag: {}", arg));
             }
 
             _ => break,
@@ -152,7 +176,7 @@ fn main() {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Error: {}", e);
-            print_usage(&args[0]);;
+            print_usage(&args[0]);
             process::exit(1);
         }
     };
@@ -210,7 +234,9 @@ fn main() {
 
     if opts.disasm || opts.disasm_out.is_some() {
         println!();
-        
+        if let Err(e) = disassemble(&elf_data, loader.arch, 0, opts.disasm_out.as_deref()) {
+            eprintln!("disasm error: {}", e);
+        }
     }
 
     if opts.any_analysis() && !opts.info_only && !opts.force_memfd && !opts.force_mmap {

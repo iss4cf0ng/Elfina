@@ -3,3 +3,4 @@ C-lang/bin/
 
 # Ignore target/
 Rust/target/
+Rust/bin/
