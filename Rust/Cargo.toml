@@ -1,6 +1,14 @@
 [package]
-name = "Rust"
+name = "elfina"
 version = "0.1.0"
 edition = "2021"
+authors = ["iss4cf0ng/ISSAC"]
+description = "Multi-platform in-memory ELF loader"
+
+[[bin]]
+name = "elfina"
+path = "src/main.rs"
 
 [dependencies]
+libc = "0.2"
+capstone = "0.12"

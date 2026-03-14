@@ -1,4 +1,9 @@
 # Elfina: A Multi-Architecture ELF Loader
+
+![License](https://img.shields.io/github/license/iss4cf0ng/Elfina)
+![Stars](https://img.shields.io/github/stars/iss4cf0ng/Elfina)
+![Issues](https://img.shields.io/github/issues/iss4cf0ng/Elfina)
+
 Elfina is a multi-architecture ELF loader supporting x86 and x86-64 binaries.
 
 ## Background

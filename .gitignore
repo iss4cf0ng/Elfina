@@ -1,2 +1,5 @@
-#Ignore bin
-bin/
+# Ignore bin/
+C-lang/bin/
+
+# Ignore target/
+Rust/target/
