@@ -6,7 +6,6 @@ mod elf_loader;
 
 use std::fs;
 use std::process;
-use std::sync::Arc;
 
 use crate::disasm::disassemble;
 use crate::elf_arch::host_arch_name;
