@@ -3,8 +3,12 @@
 ![License](https://img.shields.io/github/license/iss4cf0ng/Elfina)
 ![Stars](https://img.shields.io/github/stars/iss4cf0ng/Elfina)
 ![Issues](https://img.shields.io/github/issues/iss4cf0ng/Elfina)
+![Rust](https://img.shields.io/badge/language-Rust-orange)
+![Rust](https://img.shields.io/badge/language-Rust-orange?logo=rust)
 
 Elfina is a multi-architecture ELF loader supporting x86 and x86-64 binaries.
+
+**This project has been implemented in Rust since v2.0.0.**
 
 ## Background
 Recently, I have been studying reverse engineering on Windows and the PE file format.  
