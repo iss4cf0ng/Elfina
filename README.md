@@ -45,6 +45,13 @@ It is designed to help understand:
     - `--memfd` execution
 - ELF probing
   - `--info` displays ELF metadata and structure
+- ELF analysis utilities:
+  - `--hexdump` : Display the hexadecimal representation of the ELF file.
+  - `--hexdump-out`: Save `--hexdump` result into a specific file.
+  - `--entropy`: Calculate entropy to help identify packed or compressed sections.
+  - `--entropy-out`: Save `--entropy` result into a specific file.
+  - `--disasm`: Disassemble the ELF binary.
+  - `--disasm-out`: Save `--disasm` result into a specific file.
 
 ## Supported ELF Architectures
 
